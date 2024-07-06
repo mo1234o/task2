@@ -1,0 +1,61 @@
+import scapy.all as scapy
+from datetime import datetime
+import tkinter as tk
+from tkinter import ttk
+import threading
+
+class NetworkSniffer:
+    def _init_(self, interface):
+        self.interface = interface
+        self.root = tk.Tk()
+        self.root.title("Network Sniffer")
+
+        self.tree = ttk.Treeview(self.root)
+        self.tree["columns"] = ("Time", "Source", "Destination", "Protocol", "Info")
+        self.tree.column("#0", width=50)
+        self.tree.column("Time", width=150)
+        self.tree.column("Source", width=150)
+        self.tree.column("Destination", width=150)
+        self.tree.column("Protocol", width=100)
+        self.tree.column("Info", width=300)
+        self.tree.pack(fill="both", expand=True)
+
+        self.start_button = tk.Button(self.root, text="Start Sniffer", command=self.start_sniffer)
+        self.start_button.pack(pady=10)
+
+        self.stop_button = tk.Button(self.root, text="Stop Sniffer", command=self.stop_sniffer)
+        self.stop_button.pack(pady=10)
+
+        self.sniffer_thread = None
+        self.running = False
+
+    def start_sniffer(self):
+        self.running = True
+        self.sniffer_thread = threading.Thread(target=self.sniff_and_analyze)
+        self.sniffer_thread.start()
+
+    def stop_sniffer(self):
+        self.running = False
+        if self.sniffer_thread:
+            self.sniffer_thread.join()
+
+    def sniff_and_analyze(self):
+        print(f"Starting network sniffer on interface: {self.interface}")
+
+        def packet_callback(packet):
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            source = packet[scapy.IP].src
+            destination = packet[scapy.IP].dst
+            protocol = packet[scapy.IP].proto
+            info = packet.summary()
+
+            self.tree.insert("", "end", text=f"{len(self.tree.get_children())}", values=(timestamp, source, destination, protocol, info))
+
+        scapy.sniff(iface=self.interface, prn=packet_callback, stop_filter=lambda p: not self.running)
+
+        print("Sniffer stopped.")
+
+if _name_ == "_main_":
+    interface = "en0"  # Replace with your network interface
+    sniffer = NetworkSniffer(interface)
+    sniffer.root.mainloop()
